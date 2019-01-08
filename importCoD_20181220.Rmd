@@ -1,0 +1,102 @@
+---
+title: "Causes of death in Canadian children 2000-2016"
+author: "Tanya Murphy"
+date: "20/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://mran.revolutionanalytics.com/snapshot/2018-12-15"))
+
+library(tidyverse)
+library(ggpubr)
+library(labelled)
+library(kableExtra)
+
+
+```
+
+## Import cause of death data 
+
+Statistics Canada provides an interface to download aggregated data, stratified in many possible ways. These data were downloaded from <https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310039201&pickMembers%5B0%5D=2.3&pickMembers%5B1%5D=3.1> on Dec 20, 2018 as a CSV file (complete table).
+
+```{r data}
+
+d <- read_csv("13100392-eng/13100392.csv", 
+     col_types = cols(REF_DATE = col_integer()))
+#summary(d)
+#dput(names(d))
+names(d) <- c("refdate", "GEO", "DGUID", "agecat", "sex", 
+"cause", "measure", "UOM", "UOM_ID", 
+"SCALAR_FACTOR", "SCALAR_ID", "VECTOR", "COORDINATE", "value", 
+"STATUS", "SYMBOL", "TERMINATED", "DECIMALS")
+table(d$agecat, useNA = "ifany")
+table(d$Sex, useNA = "ifany")
+meta <- read_csv("13100392-eng/cause_codes.csv")
+names(meta)
+
+```
+
+## Data preparation
+
+You can also embed plots, for example:
+
+```{r munging}
+
+df <- d %>% 
+  filter(
+    agecat %in% c(
+      "Age at time of death, under 1 year",
+      "Age at time of death, 1 to 4 years",
+      "Age at time of death, 5 to 9 years",
+      "Age at time of death, 10 to 14 years",
+      "Age at time of death, 15 to 19 years"
+    )
+  ) %>% 
+  select(refdate, agecat, sex, cause, measure, value) %>% 
+  left_join(meta, by = "cause") %>% 
+  mutate(agecat = factor(agecat,
+                         levels = c(
+              "Age at time of death, under 1 year",
+      "Age at time of death, 1 to 4 years",
+      "Age at time of death, 5 to 9 years",
+      "Age at time of death, 10 to 14 years",
+      "Age at time of death, 15 to 19 years"             
+                         ),
+      labels = c("under 1 year", "1 to 4 years", "5 to 9 years",
+                       "10 to 14 years", "15 to 19 years"),
+      ordered = TRUE),
+         sex = factor(sex))
+
+var_label(df$agecat) <- "Age at time of death"
+levels(df$sex) <- c("both", "girls", "boys")
+
+a <- df %>% filter(measure == "Number of deaths") %>% 
+  group_by(refdate, agecat, sex, mycode) %>% 
+  summarise(count = sum(value))
+
+a %>% filter(mycode == "T-All") %>% 
+ggplot( aes(y = count, x = sex, col = sex)) +
+  geom_bar(stat = "identity") +
+  facet_grid(agecat ~ refdate) 
+
+
+ggplot(a, aes(y = count, x = mycode, col = sex)) +
+  geom_bar(stat = "identity")
+           
+
+```
+
+## Plots
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+
+
+
+
